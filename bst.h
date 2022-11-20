@@ -1,3 +1,4 @@
+
 #ifndef BST_H
 #define BST_H
 
@@ -276,8 +277,8 @@ protected:
 
     // Add helper functions here
     Node<Key, Value>* recursiveFind(Node<Key,Value>*node,const Key& key) const;
-    Node<Key, Value>* recursiveRemove(Node<Key,Value>*node,const Key& key) const;
-
+    Node<Key, Value>* recursiveRemove(Node<Key,Value>*node,const Key& key);
+    void DestroyRecursive(Node<Key,Value> * node);
 
     Node<Key, Value>* root_;
     // You should not need other data members
@@ -397,7 +398,7 @@ template<typename Key, typename Value>
 BinarySearchTree<Key, Value>::~BinarySearchTree()
 {
     // TODO
-    root_= nullptr;
+    DestroyRecursive(root_);
 }
 
 /**
@@ -517,6 +518,19 @@ void BinarySearchTree<Key, Value>::insert(const std::pair<const Key, Value> &key
 
     }
 }
+
+
+
+template<class Key, class Value>
+void BinarySearchTree<Key, Value>::DestroyRecursive(Node<Key,Value> * node)
+{
+    if (node)
+    {
+        DestroyRecursive(node->getLeft());
+        DestroyRecursive(node->getRight());
+        delete node;
+    }
+}
 /*
 template<class Key, class Value>
 Node<Key,Value>* insertRecursive(Node<Key,Value> *r, Node<Key,Value> *new_node)
@@ -549,13 +563,28 @@ Node<Key,Value>* insertRecursive(Node<Key,Value> *r, Node<Key,Value> *new_node)
 * should swap with the predecessor and then remove.
 */
 template<typename Key, typename Value>
-void BinarySearchTree<Key, Value>::remove(const Key& key)
-{
+void BinarySearchTree<Key, Value>::remove(const Key& key) {
     Node<Key, Value> *searchedNode = internalFind(key);
+
     if (!searchedNode) {
         return;
     }
-    recursiveRemove(searchedNode,key);
+    Node<Key, Value> *searchedNodeParent = searchedNode->getParent();
+    Node<Key, Value> *replacementNode = recursiveRemove(searchedNode,key);
+    //root node
+    if(searchedNodeParent== nullptr){
+        root_ = replacementNode;
+    }
+    /*
+    if(recursiveRemove(searchedNode,key)== nullptr)
+    {
+        //root node
+        if(searchedNodeParent== nullptr) {
+            root_ = nullptr;
+        }
+    }*/
+
+    return;
 
     //If the searched node has 2 children swap with its predecessor
     //If it has only left or right child just promote the child
@@ -576,12 +605,14 @@ void BinarySearchTree<Key, Value>::remove(const Key& key)
 }
 
 template<typename Key, typename Value>
-Node<Key, Value>* BinarySearchTree<Key, Value>::recursiveRemove(Node<Key,Value>*node,const Key& key) const
+Node<Key, Value>* BinarySearchTree<Key, Value>::recursiveRemove(Node<Key,Value>*node,const Key& key)
 {
     // TODO
     // If the key of the node to be deleted is smaller than the current node's key,
     // then it will be in left subtree
-    if (key < node->getKey()) {
+    if (node == nullptr) {
+        return nullptr;
+    } else if (key < node->getKey()) {
         node->setLeft(recursiveRemove(node->getLeft(), key));
     }
     // If the key of the node to be deleted is smaller than the current node's key,
@@ -589,32 +620,51 @@ Node<Key, Value>* BinarySearchTree<Key, Value>::recursiveRemove(Node<Key,Value>*
     else if (key > node->getKey()) {
         node->setRight(recursiveRemove(node->getRight(), key));
     }else {
-        // if key is same as node's key, then This is the node to be deleted
-        // scenario 1: node with only one child or no child
-        if ((node->getLeft()== nullptr)&&(node->getRight()== nullptr)){
-            //only node
-            delete node;
-            return nullptr;
-        }
-        if ((node->getLeft()== nullptr) &&(node->getRight()!= nullptr)) {
+        if (node->getLeft()== nullptr) {
             Node<Key,Value> * temp = node->getRight();
+            if(temp) {
+                temp->setParent(node->getParent());
+            }
+            if(node->getParent()) {
+                if(node==node->getParent()->getLeft())
+                {
+                    node->getParent()->setLeft(nullptr);
+                }else if(node==node->getParent()->getRight())
+                {
+                    node->getParent()->setRight(nullptr);
+                }
+            }
             delete node;
+            node= nullptr;
             return temp;
-        } else if((node->getRight()== nullptr)&&(node->getLeft()!= nullptr)){
+        } else if((node->getRight()== nullptr)){
             Node<Key,Value> * temp = node->getLeft();
+            if(temp) {
+                temp->setParent(node->getParent());
+            }
+            if(node->getParent()) {
+                if(node==node->getParent()->getLeft())
+                {
+                    node->getParent()->setLeft(nullptr);
+                }else if(node==node->getParent()->getRight())
+                {
+                    node->getParent()->setRight(nullptr);
+                }
+            }
             delete node;
+            node= nullptr;
             return temp;
         } else{
             // node with two children. Find the inorder successor smallest node in the right tree
-            //nodeSwap(node,successor(node));
-            Node<Key,Value> * temp = successor(node);
-            node->setValue(temp->getValue());
-            node->setParent(temp->getParent());
-            node->setRight(recursiveRemove(successor(node), successor(node)->getKey()));
-        }
-        return node;
+            nodeSwap(node,successor(node));
 
+            /* Node<Key,Value> * temp = successor(node);
+            node->setValue(temp->getValue());
+            node->setParent(temp->getParent());*/
+            recursiveRemove(successor(node), successor(node)->getKey());
+        }
     }
+   return node;
 }
 
 template<class Key, class Value>
@@ -658,7 +708,13 @@ template<typename Key, typename Value>
 void BinarySearchTree<Key, Value>::clear()
 {
     //
-    root_= nullptr;
+    Node<Key,Value> *node = root_;
+    if(node) {
+        DestroyRecursive(root_->getRight());
+        DestroyRecursive(root_->getLeft());
+    }
+    root_ = nullptr;
+    delete node;
     return;
 }
 
